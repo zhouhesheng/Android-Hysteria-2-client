@@ -101,6 +101,14 @@ class Hysteria2VpnService : VpnService() {
             return
         }
         Log.d(TAG, "starting hysteria, config located at $configPath")
+        
+        try {
+            val configContent = File(configPath).readText()
+            Log.d(TAG, "hysteria config content:\n$configContent")
+        } catch (e: Exception) {
+            Log.w(TAG, "failed to read config file: ${e.message}")
+        }
+        
         startHysteriaInternal(configPath)
         val fd = establishSystemVpnTunnel()
         startTun2socks(File(filesDir, TUN2SOCKS_CONFIG_FILE_NAME).absolutePath, fd)
@@ -113,7 +121,7 @@ class Hysteria2VpnService : VpnService() {
 
     private fun startHysteriaInternal(hysteriaConfig: String) {
         val commands = Array(3) { "" }
-        commands[0] = File(applicationInfo.nativeLibraryDir, "libhysteria.so").absolutePath
+        commands[0] = File(applicationInfo.nativeLibraryDir, "libhysteria2.so").absolutePath
         commands[1] = "-c"
         commands[2] = hysteriaConfig
         hysteriaProcess = Runtime.getRuntime().exec(commands)

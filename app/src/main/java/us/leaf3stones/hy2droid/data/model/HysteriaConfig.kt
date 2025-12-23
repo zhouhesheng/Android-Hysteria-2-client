@@ -42,8 +42,11 @@ bandwidth:
 socks5:
   listen: 127.0.0.1:1080
 
-fastOpen: true
-
+transport:
+  type: udp 
+  udp:
+    hopInterval: 30s
+  
 http:
   listen: 127.0.0.1:1081
   
