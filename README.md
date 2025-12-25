@@ -53,4 +53,8 @@ Github上传的源码使用最新hysteria 2.5.1版本. UI基于Jetpack Compose�
 
 - 感谢 [eycorsican/go-tun2socks](https://github.com/eycorsican/go-tun2socks) 提供代理实现. [LICENSE](https://github.com/eycorsican/go-tun2socks/blob/master/LICENSE)
 
+- 感谢 [2dust/v2rayNG](https://github.com/2dust/v2rayNG) 提供代理实现. [LICENSE](https://github.com/2dust/v2rayNG/blob/master/LICENSE)
+
+- 感谢 [heiher/hev-socks5-tunnel](https://github.com/heiher/hev-socks5-tunnel) 提供代理实现. [LICENSE](https://github.com/heiher/hev-socks5-tunnel/blob/main/LICENSE)
+
 本应用仅限学习交流使用，使用请遵守当地法规。

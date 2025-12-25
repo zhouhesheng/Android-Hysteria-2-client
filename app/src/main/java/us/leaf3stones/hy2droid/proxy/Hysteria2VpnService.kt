@@ -28,6 +28,7 @@ class Hysteria2VpnService : VpnService() {
     private external fun startTun2socks(configPath: String, fd: Int)
     private external fun stopTun2socks()
     private external fun getTun2socksStats(): LongArray
+    private var tun2SocksControl: Tun2SocksControl? = TProxyService() // set null to use libtun2sock.so
 
     private var netFileDescriptor: ParcelFileDescriptor? = null
     private var hysteriaProcess: Process? = null
@@ -35,6 +36,23 @@ class Hysteria2VpnService : VpnService() {
 
     private val job = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.Main + job)
+
+    fun alterStartTun2socks(configPath: String, fd: Int) {
+        if (tun2SocksControl == null) {
+            startTun2socks(configPath, fd)
+            Log.d(TAG, getTun2socksStats().contentToString())
+        } else {
+            tun2SocksControl?.start(configPath, fd)
+        }
+    }
+
+    fun alterStopTun2socks() {
+        if (tun2SocksControl == null) {
+            stopTun2socks()
+        } else {
+            tun2SocksControl?.stop()
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val isStart = intent?.action == ACTION_START_VPN
@@ -56,7 +74,7 @@ class Hysteria2VpnService : VpnService() {
                 val configPath = pref[KEY_VPN_CONFIG_PATH] ?: ""
                 startVpnChecked(isReady, configPath)
             }
-            return START_STICKY;
+            return START_STICKY
         } else {
             cleanup()
             stopSelf()
@@ -101,18 +119,17 @@ class Hysteria2VpnService : VpnService() {
             return
         }
         Log.d(TAG, "starting hysteria, config located at $configPath")
-        
+
         try {
             val configContent = File(configPath).readText()
             Log.d(TAG, "hysteria config content:\n$configContent")
         } catch (e: Exception) {
             Log.w(TAG, "failed to read config file: ${e.message}")
         }
-        
+
         startHysteriaInternal(configPath)
         val fd = establishSystemVpnTunnel()
-        startTun2socks(File(filesDir, TUN2SOCKS_CONFIG_FILE_NAME).absolutePath, fd)
-        Log.d(TAG, getTun2socksStats().contentToString())
+        alterStartTun2socks(File(filesDir, TUN2SOCKS_CONFIG_FILE_NAME).absolutePath, fd)
 
         observers.forEach {
             it.onVpnStarted()
@@ -152,7 +169,7 @@ class Hysteria2VpnService : VpnService() {
                 it.onVpnStopped()
             }
             observers.clear()
-            stopTun2socks()
+            alterStopTun2socks()
             netFileDescriptor?.close()
             netFileDescriptor = null
             hysteriaProcess?.destroy()
