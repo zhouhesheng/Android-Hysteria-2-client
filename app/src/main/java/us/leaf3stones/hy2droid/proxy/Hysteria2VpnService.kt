@@ -16,6 +16,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import us.leaf3stones.hy2droid.R
+import kotlinx.coroutines.runBlocking
+import us.leaf3stones.hy2droid.data.model.HysteriaConfig
+import us.leaf3stones.hy2droid.data.model.ProxyType
+import us.leaf3stones.hy2droid.data.repository.HysteriaConfigRepository
 import us.leaf3stones.hy2droid.data.KEY_IS_VPN_CONFIG_READY
 import us.leaf3stones.hy2droid.data.KEY_VPN_CONFIG_PATH
 import us.leaf3stones.hy2droid.data.TUN2SOCKS_CONFIG_FILE_NAME
@@ -28,8 +32,9 @@ class Hysteria2VpnService : VpnService() {
     private external fun startTun2socks(configPath: String, fd: Int)
     private external fun stopTun2socks()
     private external fun getTun2socksStats(): LongArray
-    private var tun2SocksControl: Tun2SocksControl? = TProxyService() // set null to use libtun2sock.so
 
+    private var tun2SocksControl: Tun2SocksControl? = null
+    private var config: HysteriaConfig? = null
     private var netFileDescriptor: ParcelFileDescriptor? = null
     private var hysteriaProcess: Process? = null
     private var hysteriaLoggingThread: Thread? = null
@@ -40,7 +45,7 @@ class Hysteria2VpnService : VpnService() {
     fun alterStartTun2socks(configPath: String, fd: Int) {
         if (tun2SocksControl == null) {
             startTun2socks(configPath, fd)
-            Log.d(TAG, getTun2socksStats().contentToString())
+            Log.d(TAG, "startTun2socks ${getTun2socksStats().contentToString()}")
         } else {
             tun2SocksControl?.start(configPath, fd)
         }
@@ -49,6 +54,7 @@ class Hysteria2VpnService : VpnService() {
     fun alterStopTun2socks() {
         if (tun2SocksControl == null) {
             stopTun2socks()
+            Log.d(TAG, "stopTun2socks")
         } else {
             tun2SocksControl?.stop()
         }
@@ -67,6 +73,16 @@ class Hysteria2VpnService : VpnService() {
         }
 
         if (isStart) {
+            runBlocking {
+                config = HysteriaConfigRepository().loadConfig()
+            }
+            tun2SocksControl = if (config?.proxyType != ProxyType.HYSTERIA_2) {
+                TProxyService()
+            } else {
+                // set null to use libtun2sock.so
+                null
+            }
+
             startForeground()
             scope.launch {
                 val pref = vpnPrefDataStore.data.first()
@@ -138,7 +154,13 @@ class Hysteria2VpnService : VpnService() {
 
     private fun startHysteriaInternal(hysteriaConfig: String) {
         val commands = Array(3) { "" }
-        commands[0] = File(applicationInfo.nativeLibraryDir, "libhysteria2.so").absolutePath
+        val libName = when (config?.proxyType) {
+            ProxyType.HYSTERIA_2 -> "libhysteria2.so"
+            ProxyType.TUIC -> "libtuic.so"
+            ProxyType.HYSTERIA_GO -> "libhy2.so"
+            else -> "libhysteria2.so" // Default to libhysteria2.so
+        }
+        commands[0] = File(applicationInfo.nativeLibraryDir, libName).absolutePath
         commands[1] = "-c"
         commands[2] = hysteriaConfig
         hysteriaProcess = Runtime.getRuntime().exec(commands)

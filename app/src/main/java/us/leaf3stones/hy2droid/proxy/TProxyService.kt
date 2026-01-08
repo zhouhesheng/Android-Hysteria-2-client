@@ -31,11 +31,9 @@ class TProxyService() : Tun2SocksControl {
      * Starts the tun2socks process with the appropriate parameters.
      */
     override fun start(configPath: String, fd: Int) {
-        Log.i(TAG, "Starting HevSocks5Tunnel via JNI")
-
         try {
             TProxyStartService(configPath, fd)
-            Log.d(TAG, TProxyGetStats().contentToString())
+            Log.i(TAG, "TProxyStartService ${TProxyGetStats().contentToString()}")
         } catch (e: Exception) {
             Log.e(TAG, "HevSocks5Tunnel exception: ${e.message}")
         }

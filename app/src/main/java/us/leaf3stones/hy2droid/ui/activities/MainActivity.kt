@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,6 +20,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import us.leaf3stones.hy2droid.ui.theme.Hy2droidTheme
+import us.leaf3stones.hy2droid.data.model.ProxyType
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,43 +67,48 @@ fun MainScreen(modifier: Modifier = Modifier, viewModel: MainActivityViewModel =
             .padding(top = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = "Hysteria 2",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.align(Alignment.Start)
-        )
-
         val config = state.configData
         BasicHysteriaConfigEdit(
+            proxyType = config.proxyType,
+            userId = config.userId,
             serverAddress = config.server,
             password = config.password,
-            sni = config.sni,
+            onProxyTypeChanged = viewModel::onProxyTypeChanged,
+            onUserIdChanged = viewModel::onUserIdChanged,
             onServerAddressChanged = viewModel::onServerChanged,
             onPasswordChanged = viewModel::onPasswordChanged,
-            onSniChanged = viewModel::onSniChanged,
-            onConfigConfirmed = viewModel::onConfigConfirmed,
             modifier = Modifier.padding(top = 16.dp)
         )
 
-        Text(
-            text = if (state.isVpnConnected) "connected" else "disconnected",
-            modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
-            style = MaterialTheme.typography.titleMedium
-        )
-        if (state.isVpnConnected) {
-            Button(onClick = { viewModel.stopVpnService(context) }) {
-                Text(text = "stop vpn")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 24.dp, bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Button(onClick = viewModel::onConfigConfirmed) {
+                Text(text = "Save")
             }
-        } else {
-            Button(onClick = {
-                val prepIntent = VpnService.prepare(context)
-                if (prepIntent != null) {
-                    vpnRequestLauncher.launch(prepIntent)
-                } else {
-                    viewModel.startVpnService(context)
+            Text(
+                text = if (state.isVpnConnected) "Connected" else "Disconnected",
+                style = MaterialTheme.typography.titleMedium
+            )
+            if (state.isVpnConnected) {
+                Button(onClick = { viewModel.stopVpnService(context) }) {
+                    Text(text = "Stop VPN")
                 }
-            }) {
-                Text(text = "start vpn")
+            } else {
+                Button(onClick = {
+                    val prepIntent = VpnService.prepare(context)
+                    if (prepIntent != null) {
+                        vpnRequestLauncher.launch(prepIntent)
+                    } else {
+                        viewModel.startVpnService(context)
+                    }
+                }) {
+                    Text(text = "Start VPN")
+                }
             }
         }
 
@@ -120,7 +128,7 @@ fun MainScreen(modifier: Modifier = Modifier, viewModel: MainActivityViewModel =
                         fontSize = 20.sp
                     )
                 }, text = {
-                    Text(text = "Configuration data is incomplete. Only the \"sni\" field is optional.")
+                    Text(text = "Configuration data is incomplete.")
                 })
         }
     }
@@ -128,22 +136,63 @@ fun MainScreen(modifier: Modifier = Modifier, viewModel: MainActivityViewModel =
 
 @Composable
 fun BasicHysteriaConfigEdit(
+    proxyType: ProxyType,
+    userId: String,
     serverAddress: String,
     password: String,
-    sni: String,
+    onProxyTypeChanged: (ProxyType) -> Unit,
+    onUserIdChanged: (String) -> Unit,
     onServerAddressChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
-    onSniChanged: (String) -> Unit,
-    onConfigConfirmed: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = proxyType == ProxyType.HYSTERIA_2,
+                    onClick = { onProxyTypeChanged(ProxyType.HYSTERIA_2) }
+                )
+                Text(text = "Hysteria 2")
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = proxyType == ProxyType.HYSTERIA_GO,
+                    onClick = { onProxyTypeChanged(ProxyType.HYSTERIA_GO) }
+                )
+                Text(text = "Hysteria go")
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = proxyType == ProxyType.TUIC,
+                    onClick = { onProxyTypeChanged(ProxyType.TUIC) }
+                )
+                Text(text = "TUIC")
+            }
+        }
         OutlinedTextField(
             value = serverAddress,
             placeholder = {
                 Text(text = "server address")
             },
             onValueChange = onServerAddressChanged,
+            modifier = Modifier.fillMaxWidth(), maxLines = 1
+        )
+        OutlinedTextField(
+            value = userId,
+            placeholder = {
+                Text(text = "user id")
+            },
+            onValueChange = onUserIdChanged,
             modifier = Modifier.fillMaxWidth(), maxLines = 1
         )
         OutlinedTextField(
@@ -154,20 +203,5 @@ fun BasicHysteriaConfigEdit(
             onValueChange = onPasswordChanged,
             modifier = Modifier.fillMaxWidth(), maxLines = 1
         )
-        OutlinedTextField(
-            value = sni,
-            placeholder = {
-                Text(text = "sni")
-            },
-            onValueChange = onSniChanged,
-            modifier = Modifier.fillMaxWidth(),
-            maxLines = 1
-        )
-        Button(
-            onClick = onConfigConfirmed,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        ) {
-            Text(text = "save")
-        }
     }
 }

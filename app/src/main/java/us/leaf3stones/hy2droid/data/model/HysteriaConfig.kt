@@ -1,13 +1,72 @@
 package us.leaf3stones.hy2droid.data.model
 
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.Serializable
 
+enum class ProxyType {
+    HYSTERIA_2, HYSTERIA_GO, TUIC
+}
+
 data class HysteriaConfig(
+    val proxyType: ProxyType = ProxyType.HYSTERIA_2,
+    val userId: String = "",
     val server: String = "",
     val password: String = "",
     val sni: String = ""
 ) : Serializable {
-    fun getFullConfig(): String {
+
+     fun getJsonConfig(): String {
+        val jsonConfig = JSONObject()
+        val inbound = JSONObject()
+        inbound.put("listen_addr", "127.0.0.1")
+        inbound.put("listen_port", 1080)
+        inbound.put("username", "")
+        inbound.put("password", "")
+        jsonConfig.put("inbound", inbound)
+
+        val outbound = JSONObject()
+        val serverParts = server.split(":")
+        val serverAddr = serverParts.getOrElse(0) { "" }
+        val serverPortOrPorts = serverParts.getOrElse(1) { "" }
+
+        outbound.put("server_addr", serverAddr)
+
+        when (proxyType) {
+            ProxyType.HYSTERIA_GO -> {
+                val serverPortsArray = JSONArray()
+                serverPortOrPorts.split(",").forEach { port ->
+                    serverPortsArray.put(port.trim().replace("-", ":"))
+                }
+                outbound.put("server_ports", serverPortsArray)
+            }
+            ProxyType.TUIC -> {
+                outbound.put("server_port", serverPortOrPorts.toIntOrNull() ?: 0)
+            }
+            else -> {
+                outbound.put("server_port", serverPortOrPorts.toIntOrNull() ?: 0)
+            }
+        }
+
+        outbound.put("hop_interval", "30s")
+        outbound.put("up_mbps", 100)
+        outbound.put("down_mbps", 100)
+        outbound.put("congestion_control", "bbr")
+        outbound.put("token", password)
+        outbound.put("uuid", userId)
+
+        val alpnArray = JSONArray()
+        alpnArray.put("h3")
+        outbound.put("alpn", alpnArray)
+
+        outbound.put("sni", sni)
+        outbound.put("allow_insecure", false)
+        jsonConfig.put("outbound", outbound)
+
+        return jsonConfig.toString(2)
+    }
+
+    fun getYamlConfig(): String {
         val mapper = mapOf(SERVER_ADDRESS_PLACEHOLDER to server, PASSWORD_PLACEHOLDER to password)
         var resultingConf = HYSTERIA_CONFIG_TEXT_DATA
         for (m in mapper) {

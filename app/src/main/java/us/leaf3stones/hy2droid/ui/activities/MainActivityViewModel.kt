@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import us.leaf3stones.hy2droid.data.repository.HysteriaConfigRepository
 import us.leaf3stones.hy2droid.data.model.HysteriaConfig
+import us.leaf3stones.hy2droid.data.model.ProxyType
 import us.leaf3stones.hy2droid.proxy.Hysteria2VpnService
+import java.util.UUID
 
 class MainActivityViewModel : ViewModel() {
     private val _state = MutableStateFlow(UiState(false, HysteriaConfig(), false))
@@ -64,6 +66,14 @@ class MainActivityViewModel : ViewModel() {
     }
 
 
+    fun onProxyTypeChanged(proxyType: ProxyType) {
+        onConfigDataChanged(_state.value.configData.copy(proxyType = proxyType))
+    }
+
+    fun onUserIdChanged(userId: String) {
+        onConfigDataChanged(_state.value.configData.copy(userId = userId))
+    }
+
     fun onServerChanged(string: String) {
         onConfigDataChanged(_state.value.configData.copy(server = string))
     }
@@ -103,7 +113,17 @@ class MainActivityViewModel : ViewModel() {
 
     private fun isUserConfigValid(): Boolean {
         val config = _state.value.configData
-        return config.server.isNotBlank() && config.password.isNotBlank()
+        val isUserIdValid = config.userId.isBlank() || isValidUUID(config.userId)
+        return config.server.isNotBlank() && config.password.isNotBlank() && isUserIdValid
+    }
+
+    private fun isValidUUID(uuid: String): Boolean {
+        return try {
+            UUID.fromString(uuid)
+            true
+        } catch (e: IllegalArgumentException) {
+            false
+        }
     }
 }
 

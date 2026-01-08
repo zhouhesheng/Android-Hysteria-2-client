@@ -12,6 +12,7 @@ val KEY_IS_VPN_CONFIG_READY = booleanPreferencesKey("is_vpn_config_ready")
 val KEY_VPN_CONFIG_PATH = stringPreferencesKey("vpn_config_path")
 const val MASTER_HYSTERIA_CONFIG_FILE_NAME = "master-conf.yaml"
 const val TUN2SOCKS_CONFIG_FILE_NAME = "tun2socks.yaml"
+const val MASTER_CONFIG_JSON_FILE_NAME = "config.json"
 
 
 const val TUN2SOCKS_CONFIG_TEXT_DATA = """
