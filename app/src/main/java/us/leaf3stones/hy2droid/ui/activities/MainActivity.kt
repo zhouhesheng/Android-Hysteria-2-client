@@ -18,16 +18,26 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,6 +63,10 @@ class MainActivity : ComponentActivity() {
 fun MainScreen(modifier: Modifier = Modifier, viewModel: MainActivityViewModel = viewModel()) {
     val state by viewModel.state.collectAsState()
     val context = LocalContext.current
+    val passwordFocusRequester = remember { FocusRequester() }
+    val saveButtonFocusRequester = remember { FocusRequester() }
+    val startVpnButtonFocusRequester = remember { FocusRequester() }
+    val firstRadioButtonFocusRequester = remember { FocusRequester() }
     val vpnRequestLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result: ActivityResult ->
             if (result.resultCode == Activity.RESULT_OK) {
@@ -77,8 +91,15 @@ fun MainScreen(modifier: Modifier = Modifier, viewModel: MainActivityViewModel =
             onUserIdChanged = viewModel::onUserIdChanged,
             onServerAddressChanged = viewModel::onServerChanged,
             onPasswordChanged = viewModel::onPasswordChanged,
+            passwordFocusRequester = passwordFocusRequester,
+            saveButtonFocusRequester = saveButtonFocusRequester,
+            firstRadioButtonFocusRequester = firstRadioButtonFocusRequester,
             modifier = Modifier.padding(top = 16.dp)
         )
+
+        LaunchedEffect(Unit) {
+            firstRadioButtonFocusRequester.requestFocus()
+        }
 
         Row(
             modifier = Modifier
@@ -87,28 +108,44 @@ fun MainScreen(modifier: Modifier = Modifier, viewModel: MainActivityViewModel =
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Button(onClick = viewModel::onConfigConfirmed) {
+            var saveButtonFocused by remember { mutableStateOf(false) }
+            Button(
+                onClick = viewModel::onConfigConfirmed,
+                modifier = Modifier.focusRequester(saveButtonFocusRequester)
+                    .onFocusChanged { saveButtonFocused = it.isFocused },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (saveButtonFocused) us.leaf3stones.hy2droid.ui.theme.DarkBlue else us.leaf3stones.hy2droid.ui.theme.LightGray,
+                    contentColor = Color.White
+                )
+            ) {
                 Text(text = "Save")
             }
             Text(
                 text = if (state.isVpnConnected) "Connected" else "Disconnected",
                 style = MaterialTheme.typography.titleMedium
             )
-            if (state.isVpnConnected) {
-                Button(onClick = { viewModel.stopVpnService(context) }) {
-                    Text(text = "Stop VPN")
-                }
-            } else {
-                Button(onClick = {
-                    val prepIntent = VpnService.prepare(context)
-                    if (prepIntent != null) {
-                        vpnRequestLauncher.launch(prepIntent)
+            var vpnButtonFocused by remember { mutableStateOf(false) }
+            Button(
+                onClick = {
+                    if (state.isVpnConnected) {
+                        viewModel.stopVpnService(context)
                     } else {
-                        viewModel.startVpnService(context)
+                        val prepIntent = VpnService.prepare(context)
+                        if (prepIntent != null) {
+                            vpnRequestLauncher.launch(prepIntent)
+                        } else {
+                            viewModel.startVpnService(context)
+                        }
                     }
-                }) {
-                    Text(text = "Start VPN")
-                }
+                },
+                modifier = Modifier.focusRequester(startVpnButtonFocusRequester)
+                    .onFocusChanged { vpnButtonFocused = it.isFocused },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (vpnButtonFocused) us.leaf3stones.hy2droid.ui.theme.DarkBlue else us.leaf3stones.hy2droid.ui.theme.LightGray,
+                    contentColor = Color.White
+                )
+            ) {
+                Text(text = if (state.isVpnConnected) "Stop VPN" else "Start VPN")
             }
         }
 
@@ -144,6 +181,9 @@ fun BasicHysteriaConfigEdit(
     onUserIdChanged: (String) -> Unit,
     onServerAddressChanged: (String) -> Unit,
     onPasswordChanged: (String) -> Unit,
+    passwordFocusRequester: FocusRequester,
+    saveButtonFocusRequester: FocusRequester,
+    firstRadioButtonFocusRequester: FocusRequester,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -156,7 +196,8 @@ fun BasicHysteriaConfigEdit(
             ) {
                 RadioButton(
                     selected = proxyType == ProxyType.HYSTERIA_2,
-                    onClick = { onProxyTypeChanged(ProxyType.HYSTERIA_2) }
+                    onClick = { onProxyTypeChanged(ProxyType.HYSTERIA_2) },
+                    modifier = Modifier.focusRequester(firstRadioButtonFocusRequester)
                 )
                 Text(text = "Hysteria 2")
             }
@@ -201,7 +242,7 @@ fun BasicHysteriaConfigEdit(
                 Text(text = "password")
             },
             onValueChange = onPasswordChanged,
-            modifier = Modifier.fillMaxWidth(), maxLines = 1
+            modifier = Modifier.fillMaxWidth().focusRequester(passwordFocusRequester).focusProperties { down = saveButtonFocusRequester }, maxLines = 1
         )
     }
 }
